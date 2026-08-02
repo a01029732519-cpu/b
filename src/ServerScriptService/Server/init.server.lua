@@ -74,9 +74,8 @@ local function onBoardCleared(info, clickingPlayer)
 	local totalBumps = #info.ClickTargets
 	local clickingData = PlayerData.Get(clickingPlayer.UserId)
 	if clickingData and totalBumps > 0 then
-		local bonus = math.floor(
-			OrbService.GetClickValue(clickingData.ClickLevel) * totalBumps * GameConfig.BubbleWrapGrid.ClearBonusMultiplier
-		)
+		local multiplier = info.ClearBonusMultiplier or 0.5
+		local bonus = math.floor(OrbService.GetClickValue(clickingData.ClickLevel) * totalBumps * multiplier)
 		clickingData.Points += bonus
 		syncPoints(clickingPlayer, clickingData)
 		pushData(clickingPlayer, "BoardClear")
@@ -123,7 +122,11 @@ local function wireClickModel(info, skin)
 	info.ModelType = skin.ModelType or "Ball"
 	info.PoppedCount = 0
 
-	if info.ModelType == "BubbleWrap" then
+	if OrbService.IsMultiTarget(info.ModelType) then
+		info.ClearBonusMultiplier = info.ModelType == "BubbleWrap"
+			and GameConfig.BubbleWrapGrid.ClearBonusMultiplier
+			or GameConfig.ABCBlocksStack.ClearBonusMultiplier
+
 		for _, bump in ipairs(info.ClickTargets) do
 			local clickDetector = bump:FindFirstChildOfClass("ClickDetector")
 			if clickDetector then

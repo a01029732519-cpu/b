@@ -117,28 +117,72 @@ function Effects.PlayBumpPop(bump, skin, sfxVolume)
 	playRandomSound(bump, skin, sfxVolume)
 end
 
--- Big celebratory burst played when every bump on a board has been popped
--- and the board is about to reset (the "climax" moment of the pop-it loop).
+-- Big celebratory burst played when every target on a board has been
+-- cleared (every pop-it bump popped, every ABC block pressed) and the
+-- board is about to reset. Works for both board shapes: BubbleWrap has a
+-- "Tray" part to flash/anchor on, ABCBlocks just has "Bump"-named blocks.
 function Effects.PlayBoardClear(board, skin, sfxVolume)
 	if not board or not board.Parent then
 		return
 	end
-	local tray = board:FindFirstChild("Tray")
-	if not tray then
+
+	local anchorPart = board:FindFirstChild("Tray") or board:FindFirstChildWhichIsA("BasePart")
+	if not anchorPart then
 		return
 	end
 
-	spawnRing(tray.CFrame, Color3.fromRGB(255, 255, 255), Vector3.new(0.2, 4, 4), Vector3.new(0.2, 30, 30), 0.6)
+	spawnRing(anchorPart.CFrame, Color3.fromRGB(255, 255, 255), Vector3.new(0.2, 4, 4), Vector3.new(0.2, 30, 30), 0.6)
 
-	local flash = TweenService:Create(
-		tray,
-		TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true),
-		{ Color = Color3.fromRGB(255, 245, 200) }
-	)
-	flash:Play()
+	for _, child in ipairs(board:GetChildren()) do
+		if child:IsA("BasePart") and (child.Name == "Tray" or child.Name == "Bump") then
+			TweenService:Create(
+				child,
+				TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true),
+				{ Color = Color3.fromRGB(255, 245, 200) }
+			):Play()
+		end
+	end
 
 	local clearSoundId = skin and skin.ClearSound
-	playRandomSound(tray, skin, (sfxVolume or 0.6) + 0.1, clearSoundId)
+	playRandomSound(anchorPart, skin, (sfxVolume or 0.6) + 0.1, clearSoundId)
+end
+
+-- Little chips break off and fall away on click: the "breaking apart"
+-- moment originally requested, realized on the Choco Popsicle skin.
+function Effects.PlayCrumbBurst(part, color)
+	if not part or not part.Parent then
+		return
+	end
+	local crumbColor = color or Color3.fromRGB(90, 55, 30)
+
+	for _ = 1, 4 do
+		local crumb = Instance.new("Part")
+		crumb.Size = Vector3.new(0.3, 0.3, 0.3)
+		crumb.Anchored = true
+		crumb.CanCollide = false
+		crumb.CanQuery = false
+		crumb.Material = Enum.Material.SmoothPlastic
+		crumb.Color = crumbColor
+		crumb.Position = part.Position + Vector3.new(
+			(math.random() - 0.5) * part.Size.X * 0.6,
+			(math.random() - 0.5) * part.Size.Y * 0.4,
+			(math.random() - 0.5) * part.Size.Z * 0.6
+		)
+		crumb.Parent = workspace
+
+		local dropTarget = crumb.Position + Vector3.new(
+			(math.random() - 0.5) * 4,
+			-3 - math.random() * 2,
+			(math.random() - 0.5) * 4
+		)
+		local tween = TweenService:Create(
+			crumb,
+			TweenInfo.new(0.5 + math.random() * 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+			{ Position = dropTarget, Transparency = 1 }
+		)
+		tween:Play()
+		Debris:AddItem(crumb, 0.9)
+	end
 end
 
 return Effects

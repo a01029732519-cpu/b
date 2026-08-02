@@ -105,7 +105,11 @@ local function hookClickModel(plotFolder)
 		local clickDetector = model:FindFirstChildOfClass("ClickDetector")
 		if clickDetector then
 			clickDetector.MouseClick:Connect(function()
-				Effects.PlayClickFeedback(model, getSkin(data.EquippedSkin), data.SfxVolume)
+				local skin = getSkin(data.EquippedSkin)
+				Effects.PlayClickFeedback(model, skin, data.SfxVolume)
+				if skin.ModelType == "ChocoPopsicle" then
+					Effects.PlayCrumbBurst(model, skin.Color)
+				end
 			end)
 		end
 	elseif model:IsA("Model") then

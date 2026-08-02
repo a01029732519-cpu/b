@@ -66,6 +66,117 @@ local function buildBallModel(origin, skin)
 	return orb, { orb }
 end
 
+-- Squishy stress ball: a smaller matte ball with two simple eyes pressed
+-- onto the front so it reads as a hand-squeeze toy rather than a plain orb.
+local function buildStressBallModel(origin, skin)
+	local ball, targets = buildBallModel(origin, skin)
+	ball.Size = Vector3.new(5, 5, 5)
+	ball.Position = origin + Vector3.new(0, 8.5, 0)
+
+	local eyeColor = Color3.fromRGB(40, 32, 28)
+	for _, side in ipairs({ -1, 1 }) do
+		local eye = Instance.new("Part")
+		eye.Name = "Eye"
+		eye.Shape = Enum.PartType.Ball
+		eye.Size = Vector3.new(0.7, 0.7, 0.35)
+		eye.Anchored = true
+		eye.CanCollide = false
+		eye.CanQuery = false
+		eye.Material = Enum.Material.SmoothPlastic
+		eye.Color = eyeColor
+		eye.Position = ball.Position + Vector3.new(side * 0.9, 0.4, -2.15)
+		eye.Parent = ball
+	end
+
+	return ball, targets
+end
+
+-- Wrapped salted-butter block: a rectangular slab with a paper "wrapper"
+-- band around the middle, like the reference footage's butter platforms.
+local function buildSaltedButterModel(origin, skin)
+	local block = Instance.new("Part")
+	block.Name = "ClickModel"
+	block.Size = Vector3.new(5, 3.2, 3.6)
+	block.Anchored = true
+	block.CanCollide = false
+	block.Position = origin + Vector3.new(0, 7.5, 0)
+	block.Color = skin.Color
+	block.Material = skin.Material or Enum.Material.SmoothPlastic
+
+	local light = Instance.new("PointLight")
+	light.Brightness = 1.6
+	light.Range = 12
+	light.Color = skin.Color
+	light.Parent = block
+
+	local band = Instance.new("Part")
+	band.Name = "WrapperBand"
+	band.Size = Vector3.new(5.2, 1.1, 3.8)
+	band.Anchored = true
+	band.CanCollide = false
+	band.CanQuery = false
+	band.Material = Enum.Material.SmoothPlastic
+	band.Color = skin.BandColor or Color3.fromRGB(196, 140, 70)
+	band.Position = block.Position
+	band.Parent = block
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.Parent = band
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(255, 250, 240)
+	label.Text = "BUTTER"
+	label.Parent = gui
+
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = 20
+	clickDetector.Parent = block
+
+	return block, { block }
+end
+
+-- Choco popsicle: an ellipsoid choco head on a stick. The head is the click
+-- target; Effects.PlayCrumbBurst (client) adds the "bite breaking off" look.
+local function buildChocoPopsicleModel(origin, skin)
+	local head = Instance.new("Part")
+	head.Name = "ClickModel"
+	head.Shape = Enum.PartType.Ball
+	head.Size = Vector3.new(3.6, 4.4, 1.6)
+	head.Anchored = true
+	head.CanCollide = false
+	head.Position = origin + Vector3.new(0, 9, 0)
+	head.Color = skin.Color
+	head.Material = skin.Material or Enum.Material.SmoothPlastic
+
+	local light = Instance.new("PointLight")
+	light.Brightness = 1.6
+	light.Range = 12
+	light.Color = skin.Color
+	light.Parent = head
+
+	local stick = Instance.new("Part")
+	stick.Name = "Stick"
+	stick.Size = Vector3.new(0.5, 2.4, 0.15)
+	stick.Anchored = true
+	stick.CanCollide = false
+	stick.CanQuery = false
+	stick.Material = Enum.Material.SmoothPlastic
+	stick.Color = skin.StickColor or Color3.fromRGB(232, 201, 155)
+	stick.Position = head.Position - Vector3.new(0, head.Size.Y / 2 + stick.Size.Y / 2 - 0.3, 0)
+	stick.Parent = head
+
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = 20
+	clickDetector.Parent = head
+
+	return head, { head }
+end
+
 -- Real pop-it / bubble wrap grid: a tray of individually poppable bumps.
 -- Each bump has its own ClickDetector and a "Popped" bool attribute that
 -- the server treats as authoritative state.
@@ -128,6 +239,65 @@ local function buildBubbleWrapModel(origin, skin)
 	return board, bumps
 end
 
+-- Stacked ABC letter-block tower: a smaller multi-target combo than
+-- BubbleWrap. Blocks reuse the exact "Bump" naming/attribute convention so
+-- OrbService.SetBumpPopped and the client's generic bump hookup work as-is.
+local function buildABCBlocksModel(origin, skin)
+	local stack = GameConfig.ABCBlocksStack
+	local board = Instance.new("Model")
+	board.Name = "ClickModel"
+
+	local blockSize = stack.BlockSize
+	local baseY = origin.Y + 5.5
+
+	for i, letter in ipairs(stack.Letters) do
+		local color = stack.RowColors[((i - 1) % #stack.RowColors) + 1]
+		local topY = baseY + (i - 1) * (blockSize.Y + stack.Gap) + blockSize.Y / 2
+
+		local block = Instance.new("Part")
+		block.Name = "Bump"
+		block.Size = blockSize
+		block.Anchored = true
+		block.CanCollide = false
+		block.Material = Enum.Material.SmoothPlastic
+		block.Color = color
+		block.Position = Vector3.new(origin.X, topY, origin.Z)
+		block:SetAttribute("Popped", false)
+		block:SetAttribute("OriginalY", topY)
+		block:SetAttribute("RowColorR", color.R)
+		block:SetAttribute("RowColorG", color.G)
+		block:SetAttribute("RowColorB", color.B)
+		block.Parent = board
+
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Front
+		gui.Parent = block
+
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBold
+		label.TextScaled = true
+		label.TextColor3 = Color3.fromRGB(255, 255, 255)
+		label.TextStrokeTransparency = 0.5
+		label.Text = letter
+		label.Parent = gui
+
+		local clickDetector = Instance.new("ClickDetector")
+		clickDetector.MaxActivationDistance = 18
+		clickDetector.Parent = block
+	end
+
+	local blocks = {}
+	for _, child in ipairs(board:GetChildren()) do
+		if child.Name == "Bump" then
+			table.insert(blocks, child)
+		end
+	end
+
+	return board, blocks
+end
+
 local function bumpPopDepth(bump)
 	return bump.Size.Y * 0.65
 end
@@ -154,11 +324,32 @@ function OrbService.SetBumpPopped(bump, popped)
 	end
 end
 
--- Builds the correct click model for a skin (Ball by default, or a
--- BubbleWrap grid) and returns (rootInstance, clickableParts).
+local MODEL_BUILDERS = {
+	StressBall = buildStressBallModel,
+	SaltedButter = buildSaltedButterModel,
+	ChocoPopsicle = buildChocoPopsicleModel,
+	BubbleWrap = buildBubbleWrapModel,
+	ABCBlocks = buildABCBlocksModel,
+}
+
+-- Model types with several independently-clickable targets (pop-it grid,
+-- letter-block tower) that combo into a bonus + reset when fully cleared,
+-- as opposed to a single click target like a ball or butter block.
+local MULTI_TARGET_TYPES = {
+	BubbleWrap = true,
+	ABCBlocks = true,
+}
+
+function OrbService.IsMultiTarget(modelType)
+	return MULTI_TARGET_TYPES[modelType] == true
+end
+
+-- Builds the correct click model for a skin (plain ball by default, or one
+-- of the named MODEL_BUILDERS) and returns (rootInstance, clickableParts).
 function OrbService.BuildClickModel(origin, skin)
-	if skin.ModelType == "BubbleWrap" then
-		return buildBubbleWrapModel(origin, skin)
+	local builder = MODEL_BUILDERS[skin.ModelType]
+	if builder then
+		return builder(origin, skin)
 	end
 	return buildBallModel(origin, skin)
 end
