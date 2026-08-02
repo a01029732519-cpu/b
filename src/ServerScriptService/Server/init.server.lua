@@ -1,5 +1,5 @@
 -- ASMR Clicker: server entry point.
--- Owns all authoritative state: points, purchases, saving, and orb plots.
+-- Owns all authoritative state: points, purchases, saving, and plot models.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,7 +14,8 @@ local BuyUpgradeRemote = Remotes:WaitForChild("BuyUpgrade")
 local DataSyncRemote = Remotes:WaitForChild("DataSync")
 local SetAudioSettingRemote = Remotes:WaitForChild("SetAudioSetting")
 
-local playerOrbs = {} -- [userId] = { Orb, PlotFolder, PlotIndex, Origin }
+-- [userId] = { Model, ClickTargets, PlotFolder, PlotIndex, Origin, ModelType, PoppedCount }
+local playerOrbs = {}
 local clickTimestamps = {} -- [userId] = { recent click os.clock() times }
 
 local function getLeaderstatPoints(player)
@@ -53,6 +54,7 @@ local function isRateLimited(player)
 	return false
 end
 
+-- Plain ball orb click (Slime / Kinetic Sand / Cloud Foam / default skins).
 local function onOrbClicked(player)
 	local data = PlayerData.Get(player.UserId)
 	if not data then
@@ -64,6 +66,78 @@ local function onOrbClicked(player)
 
 	data.Points += OrbService.GetClickValue(data.ClickLevel)
 	syncPoints(player, data)
+end
+
+-- Awards a combo bonus to whoever popped the final bump, then resets the
+-- whole board after a short beat so play can continue indefinitely.
+local function onBoardCleared(info, clickingPlayer)
+	local totalBumps = #info.ClickTargets
+	local clickingData = PlayerData.Get(clickingPlayer.UserId)
+	if clickingData and totalBumps > 0 then
+		local bonus = math.floor(
+			OrbService.GetClickValue(clickingData.ClickLevel) * totalBumps * GameConfig.BubbleWrapGrid.ClearBonusMultiplier
+		)
+		clickingData.Points += bonus
+		syncPoints(clickingPlayer, clickingData)
+		pushData(clickingPlayer, "BoardClear")
+	end
+
+	task.delay(0.6, function()
+		for _, bump in ipairs(info.ClickTargets) do
+			bump:SetAttribute("Popped", false)
+			OrbService.SetBumpPopped(bump, false)
+		end
+		info.PoppedCount = 0
+	end)
+end
+
+-- BubbleWrap bump click: any player may pop any board's bumps (credited to
+-- themselves), matching the shared-click behavior of the plain ball orb.
+local function onBumpClicked(clickingPlayer, info, bump)
+	local data = PlayerData.Get(clickingPlayer.UserId)
+	if not data then
+		return
+	end
+	if isRateLimited(clickingPlayer) then
+		return
+	end
+	if bump:GetAttribute("Popped") then
+		return
+	end
+
+	bump:SetAttribute("Popped", true)
+	OrbService.SetBumpPopped(bump, true)
+
+	data.Points += OrbService.GetClickValue(data.ClickLevel)
+	syncPoints(clickingPlayer, data)
+
+	info.PoppedCount += 1
+	if info.PoppedCount >= #info.ClickTargets then
+		onBoardCleared(info, clickingPlayer)
+	end
+end
+
+-- Connects the right click handling for whichever model type the plot's
+-- current skin builds. Called on first spawn and whenever a skin changes.
+local function wireClickModel(info, skin)
+	info.ModelType = skin.ModelType or "Ball"
+	info.PoppedCount = 0
+
+	if info.ModelType == "BubbleWrap" then
+		for _, bump in ipairs(info.ClickTargets) do
+			local clickDetector = bump:FindFirstChildOfClass("ClickDetector")
+			if clickDetector then
+				clickDetector.MouseClick:Connect(function(clickingPlayer)
+					onBumpClicked(clickingPlayer, info, bump)
+				end)
+			end
+		end
+	else
+		local clickDetector = info.Model:FindFirstChildOfClass("ClickDetector")
+		if clickDetector then
+			clickDetector.MouseClick:Connect(onOrbClicked)
+		end
+	end
 end
 
 local function teleportToPlot(player, origin)
@@ -88,16 +162,19 @@ local function setupPlayer(player)
 	clickTimestamps[player.UserId] = {}
 
 	local plotIndex = PlotManager.Assign()
-	local plotFolder, orb, clickDetector, origin = OrbService.CreatePlot(player, plotIndex, data.EquippedSkin)
+	local plotFolder, root, clickTargets, origin = OrbService.CreatePlot(player, plotIndex, data.EquippedSkin)
 
-	playerOrbs[player.UserId] = {
-		Orb = orb,
+	local info = {
+		Model = root,
+		ClickTargets = clickTargets,
 		PlotFolder = plotFolder,
 		PlotIndex = plotIndex,
 		Origin = origin,
+		PoppedCount = 0,
 	}
+	playerOrbs[player.UserId] = info
 
-	clickDetector.MouseClick:Connect(onOrbClicked)
+	wireClickModel(info, OrbService.GetSkin(data.EquippedSkin))
 
 	player.CharacterAdded:Connect(function()
 		teleportToPlot(player, origin)
@@ -161,7 +238,10 @@ local function tryEquipOrBuySkin(player, data, skinId)
 	data.EquippedSkin = skin.Id
 	local info = playerOrbs[player.UserId]
 	if info then
-		OrbService.ApplySkin(info.Orb, skin)
+		local root, clickTargets = OrbService.RebuildClickModel(info.PlotFolder, info.Origin, skin)
+		info.Model = root
+		info.ClickTargets = clickTargets
+		wireClickModel(info, skin)
 	end
 	return true
 end

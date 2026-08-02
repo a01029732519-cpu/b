@@ -2,6 +2,7 @@
 -- (click power / skins / helpers) and audio settings panel.
 
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 local UI = {}
 
@@ -459,6 +460,42 @@ function UI.PlayHelperTickFeedback(refs)
 	label.TextColor3 = PASTEL_ACCENT
 	task.delay(0.25, function()
 		label.TextColor3 = originalColor
+	end)
+end
+
+-- Big celebratory banner for moments like clearing a whole pop-it board.
+function UI.ShowBonusPopup(refs, text)
+	local label = Instance.new("TextLabel")
+	label.AnchorPoint = Vector2.new(0.5, 0)
+	label.Position = UDim2.new(0.5, 0, 0.18, 0)
+	label.Size = UDim2.new(0, 360, 0, 60)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBlack
+	label.TextSize = 30
+	label.TextColor3 = Color3.fromRGB(255, 214, 102)
+	label.TextStrokeTransparency = 0.2
+	label.TextStrokeColor3 = Color3.fromRGB(90, 60, 20)
+	label.Text = text
+	label.Parent = refs.ScreenGui
+
+	local targetSize = label.Size
+	label.Size = UDim2.new(0, 0, 0, 0)
+	TweenService:Create(
+		label,
+		TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		{ Size = targetSize }
+	):Play()
+
+	task.delay(1.2, function()
+		local fadeTween = TweenService:Create(
+			label,
+			TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+			{ TextTransparency = 1, TextStrokeTransparency = 1 }
+		)
+		fadeTween:Play()
+		fadeTween.Completed:Once(function()
+			label:Destroy()
+		end)
 	end)
 end
 

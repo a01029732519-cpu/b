@@ -4,9 +4,10 @@
 
 ## 주요 기능
 
-- **개인 전용 오브 & 플롯**: 플레이어마다 독립된 구역에 스폰되어 자신만의 오브를 클릭합니다 (다른 플레이어의 오브도 도와서 클릭 가능).
-- **ASMR 클릭 피드백**: 클릭 시 오브가 눌렸다 튕기는 스퀴시 트윈, 확산되는 링 이펙트, 스킨별 랜덤 사운드(피치 변주 포함)가 즉시 재생됩니다.
-- **스킨 시스템**: Slime / Bubble Wrap / Kinetic Sand / Cloud Foam — 스킨마다 색상, 재질, 전용 클릭 사운드 팩이 다릅니다.
+- **개인 전용 클릭 모델 & 플롯**: 플레이어마다 독립된 구역에 스폰되어 자신만의 클릭 오브젝트를 클릭합니다 (다른 플레이어의 오브젝트도 도와서 클릭 가능).
+- **ASMR 클릭 피드백**: 클릭 시 눌렸다 튕기는 스퀴시 트윈, 확산되는 링 이펙트, 스킨별 랜덤 사운드(피치 변주 포함)가 즉시 재생됩니다.
+- **진짜 뽁뽁이(Pop-It) 모델**: `Bubble Wrap` 스킨은 단순 색깔 구슬이 아니라 **레인보우 범프(돌기) 그리드**로 렌더링됩니다. 범프 하나하나를 개별 클릭해서 눌러 터뜨릴 수 있고(각자 포인트 지급), 판 전체를 다 누르면 콤보 보너스 포인트 + 축하 이펙트와 함께 판이 리셋되어 무한 반복 가능합니다.
+- **스킨 시스템**: Slime / Bubble Wrap(Pop-It 그리드) / Kinetic Sand / Cloud Foam — 스킨마다 모양, 색상, 재질, 전용 클릭 사운드 팩이 다릅니다.
 - **업그레이드**: 클릭당 포인트를 늘리는 Click Power 업그레이드.
 - **ASMR 헬퍼**: 4초마다 자동으로 포인트를 생성하고 은은한 사운드를 재생하는 패시브 아이템(고양이 골골송, 빗소리 등).
 - **오디오 설정**: 배경음악/효과음 볼륨을 각각 조절하는 슬라이더 (ASMR 게임 특성상 사운드 컨트롤을 전면에 배치).
@@ -22,7 +23,7 @@ src/
   ServerScriptService/Server/
     init.server.lua    -- 메인 서버 로직 (플레이어 접속, 클릭 처리, 구매, 저장)
     PlayerData.lua      -- DataStore 로드/저장
-    OrbService.lua       -- 플롯/오브 생성, 스킨 적용
+    OrbService.lua       -- 플롯/클릭 모델 생성 (볼 오브 또는 뽁뽁이 그리드), 스킨 리빌드
     PlotManager.lua       -- 플레이어별 플롯 슬롯 배정
   StarterPlayer/StarterPlayerScripts/ASMRClient/
     init.client.lua     -- 클라이언트 진입점 (HUD, 오브 훅업, 배경음악)
@@ -46,5 +47,7 @@ src/
 ## 커스터마이징 포인트
 
 - `GameConfig.ClickUpgrades` / `GameConfig.Skins` / `GameConfig.Helpers` 테이블에 항목을 추가하면 상점 UI와 서버 로직에 자동 반영됩니다.
-- `OrbService.PLOT_SPACING`으로 플레이어 간 플롯 간격을 조정할 수 있습니다.
+- `GameConfig.BubbleWrapGrid`로 뽁뽁이 판의 행/열 개수, 범프 크기, 줄무늬 색상, 클리어 보너스 배율을 조정할 수 있습니다.
+- 새 스킨에 `ModelType = "BubbleWrap"`을 지정하면 그 스킨도 뽁뽁이 그리드로 렌더링됩니다 (지정 안 하면 기본 볼 오브).
+- `OrbService.lua`의 `PLOT_SPACING`으로 플레이어 간 플롯 간격을 조정할 수 있습니다.
 - `GameConfig.MaxClicksPerSecond`로 클릭 속도 제한(안티 익스플로잇)을 조정할 수 있습니다.

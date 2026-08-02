@@ -58,13 +58,24 @@ refs.OnSetAudio = function(setting, value)
 	SetAudioSettingRemote:FireServer(setting, value)
 end
 
+local currentClickModel = nil -- the plot's own ClickModel, re-resolved whenever it's rebuilt (skin change)
+
 DataSyncRemote.OnClientEvent:Connect(function(newData, reason)
+	local previousPoints = data.Points
 	for key, value in pairs(newData) do
 		data[key] = value
 	end
 	refresh()
 	if reason == "HelperTick" then
 		UI.PlayHelperTickFeedback(refs)
+	elseif reason == "BoardClear" then
+		local bonus = data.Points - previousPoints
+		if currentClickModel then
+			Effects.PlayBoardClear(currentClickModel, getSkin(data.EquippedSkin), data.SfxVolume)
+		end
+		if bonus > 0 then
+			UI.ShowBonusPopup(refs, ("BOARD CLEAR! +%d"):format(bonus))
+		end
 	end
 end)
 
@@ -78,7 +89,40 @@ music.Parent = SoundService
 music:Play()
 refs.MusicSound = music
 
--- Wait for and hook this player's personal orb once the server spawns it
+-- Hooks whichever ClickModel currently sits in the player's own plot:
+-- a plain ball (Effects.PlayClickFeedback) or a BubbleWrap pop-it grid
+-- (Effects.PlayBumpPop per bump). Re-runs whenever the server rebuilds the
+-- model after an equip, since the old instance is destroyed and a new one
+-- with the same name is parented in.
+local function hookClickModel(plotFolder)
+	local model = plotFolder:FindFirstChild("ClickModel")
+	if not model or model == currentClickModel then
+		return
+	end
+	currentClickModel = model
+
+	if model:IsA("BasePart") then
+		local clickDetector = model:FindFirstChildOfClass("ClickDetector")
+		if clickDetector then
+			clickDetector.MouseClick:Connect(function()
+				Effects.PlayClickFeedback(model, getSkin(data.EquippedSkin), data.SfxVolume)
+			end)
+		end
+	elseif model:IsA("Model") then
+		for _, bump in ipairs(model:GetChildren()) do
+			if bump.Name == "Bump" then
+				local clickDetector = bump:FindFirstChildOfClass("ClickDetector")
+				if clickDetector then
+					clickDetector.MouseClick:Connect(function()
+						Effects.PlayBumpPop(bump, getSkin(data.EquippedSkin), data.SfxVolume)
+					end)
+				end
+			end
+		end
+	end
+end
+
+-- Wait for and hook this player's personal plot once the server spawns it
 task.spawn(function()
 	local plotsFolder = workspace:WaitForChild("ASMRPlots", 30)
 	if not plotsFolder then
@@ -88,15 +132,13 @@ task.spawn(function()
 	if not plotFolder then
 		return
 	end
-	local orb = plotFolder:WaitForChild("ASMROrb", 10)
-	local clickDetector = orb and orb:WaitForChild("ClickDetector", 10)
-	if not orb or not clickDetector then
-		return
-	end
 
-	clickDetector.MouseClick:Connect(function()
-		Effects.PlayClickFeedback(orb, getSkin(data.EquippedSkin), data.SfxVolume)
+	plotFolder.ChildAdded:Connect(function(child)
+		if child.Name == "ClickModel" then
+			hookClickModel(plotFolder)
+		end
 	end)
+	hookClickModel(plotFolder)
 end)
 
 refresh()

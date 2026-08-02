@@ -30,13 +30,17 @@ GameConfig.Skins = {
 		Id = "BubbleWrap",
 		Name = "Bubble Wrap",
 		Cost = 150,
+		-- BubbleWrap renders as a real pop-it grid (see GameConfig.BubbleWrapGrid)
+		-- instead of a plain ball. Every other skin defaults to "Ball".
+		ModelType = "BubbleWrap",
 		Color = Color3.fromRGB(210, 230, 255),
-		Material = Enum.Material.Glass,
-		Transparency = 0.2,
+		Material = Enum.Material.SmoothPlastic,
+		Transparency = 0,
 		ClickSounds = {
 			"rbxasset://sounds/clickfast.wav",
 			"rbxasset://sounds/switch3.wav",
 		},
+		ClearSound = "rbxasset://sounds/bell.wav",
 	},
 	{
 		Id = "KineticSand",
@@ -62,6 +66,25 @@ GameConfig.Skins = {
 			"rbxasset://sounds/bell.wav",
 		},
 	},
+}
+
+-- Layout + rainbow row colors for the BubbleWrap pop-it grid model
+-- (inspired by the rainbow pop-it ramps from the reference ASMR tower
+-- footage). Rows run front-to-back, each row is one color band.
+GameConfig.BubbleWrapGrid = {
+	Rows = 4,
+	Columns = 6,
+	TraySize = Vector3.new(22, 1, 14),
+	BumpSize = Vector3.new(2.6, 1.4, 2.6),
+	RowColors = {
+		Color3.fromRGB(255, 99, 99),
+		Color3.fromRGB(255, 178, 102),
+		Color3.fromRGB(255, 241, 118),
+		Color3.fromRGB(129, 212, 129),
+	},
+	-- bonus points multiplier applied to (points-per-click * bump count)
+	-- when a player pops every bump and the board resets
+	ClearBonusMultiplier = 0.5,
 }
 
 -- Click power upgrades: each level increases points earned per click.
